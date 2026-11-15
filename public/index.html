@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Greenlight — the quality gate for AI agent output</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f5f1; --panel:#fff; --ink:#191b1e; --ink2:#3c4046;
+    --muted:#71757c; --faint:#a3a6ab; --line:#e4e1d8; --line2:#efece4;
+    --green:#0b7a43; --green-bg:#e9f5ee; --red:#bc3226; --red-bg:#fbeae8;
+    --amber:#9a6a12; --amber-bg:#faf1dc; --blue:#205d9e;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
+    --sans:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(25,27,30,.05),0 10px 30px -12px rgba(25,27,30,.12);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;-webkit-font-smoothing:antialiased}
+  ::selection{background:#cdeeda}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:40;background:rgba(246,245,241,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:1360px;margin:0 auto;padding:0 28px;height:60px;display:flex;align-items:center;gap:16px}
+  .wordmark{font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  .wordmark .dot{width:10px;height:10px;border-radius:50%;background:var(--faint);transition:background .4s}
+  .wordmark .dot.ship{background:var(--green)} .wordmark .dot.review{background:#d99a16} .wordmark .dot.block{background:var(--red)}
+  .topnav{display:flex;gap:22px;margin-left:18px;font-size:13.5px;color:var(--ink2)}
+  .topnav a{color:inherit;text-decoration:none} .topnav a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+  @media(max-width:760px){.topnav{display:none}}
+  .mode{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink2);border:1px solid var(--line);background:var(--panel);padding:6px 11px;border-radius:999px}
+  .mode i{width:7px;height:7px;border-radius:50%;background:#d99a16;display:inline-block}
+  .mode.live i{background:var(--green)}
+
+  /* ---------- hero ---------- */
+  .hero{max-width:1360px;margin:0 auto;padding:44px 28px 8px}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--green);font-weight:500}
+  .hero h1{font-family:var(--serif);font-weight:500;font-size:clamp(34px,4.6vw,54px);line-height:1.06;letter-spacing:-.015em;margin:12px 0 12px;max-width:19em}
+  .hero h1 em{font-style:italic;color:var(--green)}
+  .hero p{color:var(--ink2);font-size:16.5px;line-height:1.55;max-width:44em;margin:0}
+  .hero .stats{display:flex;gap:34px;margin-top:22px;flex-wrap:wrap}
+  .hero .stat b{font-family:var(--serif);font-size:22px;font-weight:600;display:block}
+  .hero .stat span{font-size:12.5px;color:var(--muted)}
+
+  /* ---------- layout ---------- */
+  main{max-width:1360px;margin:0 auto;padding:26px 28px 10px;display:grid;grid-template-columns:minmax(360px,5fr) 7fr;gap:22px;align-items:start}
+  @media(max-width:1020px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .card-pad{padding:20px 22px}
+  .sec-label{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:14px}
+  .sec-label::after{content:"";flex:1;height:1px;background:var(--line2)}
+
+  /* case tabs */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .tab{border:1px solid var(--line);background:var(--paper);color:var(--ink2);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s}
+  .tab:hover{border-color:var(--faint)}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tab .n{font-family:var(--mono);font-size:11px;opacity:.65;margin-right:6px}
+
+  label.f{display:block;font-size:12.5px;font-weight:600;color:var(--ink2);margin:16px 0 6px}
+  label.f .hint{font-weight:400;color:var(--muted)}
+  textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-family:var(--sans);font-size:14px;line-height:1.6;color:var(--ink);background:#fdfcf9;resize:vertical;transition:border-color .15s, box-shadow .15s}
+  textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(11,122,67,.12)}
+  #brief{min-height:118px} #draft{min-height:158px}
+
+  /* instant check */
+  .instant{margin-top:14px;border:1px solid var(--line2);border-radius:12px;background:#fdfcf9;padding:13px 14px}
+  .instant-head{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+  .instant-head .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--green-bg);color:var(--green)}
+  .instant-head .count.bad{background:var(--red-bg);color:var(--red)}
+  .instant p{margin:8px 0 0;font-size:13.5px;line-height:1.65;color:var(--ink2)}
+  .instant mark{background:var(--red-bg);color:var(--red);border-radius:3px;padding:0 2px;cursor:pointer}
+  .instant mark.okm{background:var(--green-bg);color:var(--green)}
+  .instant .none{color:var(--muted);font-size:13px;margin-top:6px}
+
+  /* controls */
+  .controls{margin-top:18px;border-top:1px solid var(--line2);padding-top:16px}
+  .ctl-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .switch{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink2);cursor:pointer;user-select:none}
+  .switch input{display:none}
+  .switch .track{width:36px;height:20px;border-radius:99px;background:#d8d4c8;position:relative;transition:background .2s;flex:none}
+  .switch .track::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+  .switch input:checked + .track{background:var(--ink)} .switch input:checked + .track::after{left:18px}
+  .thresh{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink2);flex:1;min-width:210px}
+  .thresh output{font-family:var(--mono);font-size:12.5px;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:2px 8px;min-width:38px;text-align:center}
+  input[type=range]{flex:1;accent-color:var(--ink);height:4px}
+  #runBtn{width:100%;padding:14px;background:var(--ink);color:#fff;border:0;border-radius:11px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .08s, background .2s}
+  #runBtn:hover{background:#000} #runBtn:active{transform:scale(.99)} #runBtn:disabled{opacity:.5;cursor:wait}
+  #runBtn kbd{font-family:var(--mono);font-size:11px;font-weight:400;opacity:.6;border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:1px 6px}
+  .stepbar{display:none;margin-top:12px;background:var(--amber-bg);border:1px solid #eadfae;color:#6d5310;border-radius:11px;padding:12px 14px;font-size:13.5px;align-items:center;gap:12px}
+  .stepbar.show{display:flex}
+  .stepbar button{margin-left:auto;background:var(--ink);color:#fff;border:0;border-radius:8px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:var(--sans);font-size:13.5px}
+
+  /* stepper */
+  .stepper{display:flex;align-items:flex-start;padding:18px 22px 6px}
+  .step{flex:1;text-align:center;position:relative}
+  .step::before{content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;background:var(--line)}
+  .step:first-child::before{display:none}
+  .step .bub{width:27px;height:27px;border-radius:50%;border:2px solid var(--line);background:var(--panel);margin:0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted);position:relative;z-index:1;transition:all .3s}
+  .step .cap{font-size:12px;color:var(--muted);margin-top:7px;font-weight:500}
+  .step .sub{font-size:11px;color:var(--faint)}
+  .step.active .bub{border-color:var(--ink);color:var(--ink);box-shadow:0 0 0 4px rgba(25,27,30,.08)}
+  .step.active .cap{color:var(--ink)}
+  .step.done .bub{background:var(--ink);border-color:var(--ink);color:#fff}
+  .step.done::before{background:var(--ink)}
+  .step.done .cap{color:var(--ink2)}
+
+  /* score area */
+  .scorezone{display:flex;gap:26px;align-items:flex-end;padding:8px 22px 4px;flex-wrap:wrap}
+  .bigscore{font-family:var(--serif);font-size:76px;font-weight:600;line-height:.95;letter-spacing:-.02em}
+  .bigscore small{font-size:26px;color:var(--faint);font-weight:500}
+  .verdict-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .pill{font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;letter-spacing:.02em}
+  .pill.ship{background:var(--green-bg);color:var(--green)} .pill.review{background:var(--amber-bg);color:var(--amber)} .pill.block{background:var(--red-bg);color:var(--red)}
+  .pill.src{background:var(--paper);border:1px solid var(--line);color:var(--ink2);font-family:var(--mono);font-weight:500;font-size:11.5px}
+  .score-note{color:var(--muted);font-size:13.5px;max-width:34em;line-height:1.5}
+  #chart{width:100%;height:118px;display:block}
+  .chart-wrap{padding:2px 14px 10px}
+  #chart circle.pt{cursor:pointer} #chart circle.pt:hover{stroke-width:4}
+
+  /* round inspector */
+  .roundtabs{display:flex;gap:6px;padding:0 22px;flex-wrap:wrap}
+  .rtab{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer;font-family:var(--sans);color:var(--ink2)}
+  .rtab.on{border-color:var(--ink);color:var(--ink);font-weight:600}
+  .rtab .s{font-family:var(--mono);font-size:12px;margin-left:6px}
+  .inspector{padding:16px 22px 20px}
+  .inspector .reason{font-size:14.5px;line-height:1.6;color:var(--ink)}
+  .rubric{margin:14px 0 4px;display:grid;grid-template-columns:1fr 1fr;gap:6px 26px}
+  @media(max-width:640px){.rubric{grid-template-columns:1fr}}
+  .rubric .row{display:grid;grid-template-columns:104px 1fr 30px;gap:10px;align-items:center;font-size:12.5px;color:var(--ink2)}
+  .rubric .bar{height:6px;background:var(--line2);border-radius:99px;overflow:hidden}
+  .rubric .bar i{display:block;height:100%;border-radius:99px;background:var(--green);width:0;transition:width .7s cubic-bezier(.2,.7,.2,1)}
+  .rubric .bar i.low{background:var(--red)} .rubric .bar i.mid{background:#d99a16}
+  .rubric .v{font-family:var(--mono);font-size:12px;text-align:right}
+  .subhead{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+  .claims{list-style:none;margin:0;padding:0}
+  .claims li{font-size:13.5px;line-height:1.55;padding:9px 12px;border:1px solid var(--line2);border-radius:9px;margin:6px 0;background:#fdfcf9}
+  .claims li .st{font-family:var(--mono);font-size:11px;font-weight:500;margin-right:8px}
+  .claims li.ok .st{color:var(--green)} .claims li.bad .st{color:var(--red)}
+  .claims li small{display:block;color:var(--muted);margin-top:2px}
+  .draftbox{border:1px solid var(--line2);background:#fdfcf9;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.65;white-space:pre-wrap}
+  .diffbox{border:1px solid var(--line2);background:#fdfcf9;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.7}
+  .diffbox del{background:var(--red-bg);color:var(--red);text-decoration:none;border-radius:3px;padding:0 2px}
+  .diffbox ins{background:var(--green-bg);color:var(--green);text-decoration:none;border-radius:3px;padding:0 2px}
+  details.more{margin-top:6px} details.more summary{cursor:pointer;font-size:13px;color:var(--blue);font-weight:500;padding:4px 0}
+
+  /* final */
+  #final{display:none;margin-top:22px}
+  #final.show{display:block}
+  #final .banner{display:flex;gap:14px;align-items:center;padding:18px 22px;border-radius:16px 16px 0 0}
+  #final.ok .banner{background:var(--green-bg)} #final.no .banner{background:var(--red-bg)}
+  #final .banner .sig{width:38px;height:38px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:19px;color:#fff}
+  #final.ok .sig{background:var(--green)} #final.no .sig{background:var(--red)}
+  #final .banner h2{font-family:var(--serif);font-weight:600;font-size:23px;margin:0}
+  #final .banner p{margin:2px 0 0;color:var(--ink2);font-size:13.5px}
+  #final .body{padding:18px 22px 20px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.compare{grid-template-columns:1fr}}
+  .compare h4{margin:0 0 8px;font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+  .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:9px 15px;font-size:13.5px;font-weight:500;cursor:pointer;font-family:var(--sans)}
+  .btn:hover{border-color:var(--faint)} .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* audit */
+  .audit-card{margin-top:22px}
+  #audit{list-style:none;margin:0;padding:4px 0;max-height:290px;overflow:auto}
+  #audit li{display:flex;gap:14px;padding:8px 2px;border-bottom:1px dashed var(--line2);font-size:13.5px;color:var(--ink2);line-height:1.5}
+  #audit li:last-child{border-bottom:0}
+  #audit time{font-family:var(--mono);font-size:12px;color:var(--faint);flex:none;padding-top:1px}
+  #audit b{color:var(--ink)}
+  .empty-note{color:var(--muted);font-size:14px;line-height:1.6}
+
+  footer{max-width:1360px;margin:0 auto;padding:26px 28px 42px;color:var(--muted);font-size:13px;line-height:1.7}
+  footer .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  @media(max-width:760px){footer .cols{grid-template-columns:1fr}}
+  footer h5{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px}
+  footer p{margin:0}
+  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .fadein{animation:fi .45s ease both} @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-in">
+  <div class="wordmark"><span class="dot" id="topDot"></span>Greenlight</div>
+  <nav class="topnav"><a href="#gate">The gate</a><a href="#how">How it works</a><a href="#auditCard">Audit trail</a></nav>
+  <div class="mode" id="modeBadge"><i></i><span>checking mode</span></div>
+</div></div>
+
+<section class="hero">
+  <div class="kicker">A quality gate for AI agent output</div>
+  <h1>Agents write fast.<br>Greenlight makes sure they <em>write true.</em></h1>
+  <p>Support replies, listings and outreach drafted by agents ship with invented refunds, made-up specs and statistics nobody measured. Greenlight checks every draft against its brief, scores it with an independent evaluator panel, rewrites what fails, and only lets passing work through.</p>
+  <div class="stats">
+    <div class="stat"><b>3 rounds</b><span>maximum rewrite loop</span></div>
+    <div class="stat"><b>0–100</b><span>panel score per round</span></div>
+    <div class="stat"><b>Every claim</b><span>traced back to the brief</span></div>
+  </div>
+</section>
+
+<main id="gate">
+  <!-- ======================= LEFT: the work ======================= -->
+  <section class="card card-pad">
+    <div class="sec-label">The work to gate</div>
+    <div class="tabs" id="caseTabs"></div>
+
+    <label class="f" for="brief">Brief <span class="hint">— the only source of truth</span></label>
+    <textarea id="brief" spellcheck="false"></textarea>
+
+    <label class="f" for="draft">Agent draft <span class="hint">— edit it and watch the instant check react</span></label>
+    <textarea id="draft" spellcheck="false"></textarea>
+
+    <div class="instant" id="instantBox">
+      <div class="instant-head">Instant check <span style="color:var(--faint);font-weight:400">runs locally as you type</span><span class="count" id="instantCount">—</span></div>
+      <div id="instantBody"><div class="none">Sentences with figures or promises get traced against the brief.</div></div>
+    </div>
+
+    <div class="controls">
+      <div class="ctl-row">
+        <label class="switch"><input type="checkbox" id="stepMode"><span class="track"></span>Step through each stage</label>
+      </div>
+      <div class="ctl-row">
+        <div class="thresh"><span>Ship threshold</span><input type="range" id="threshold" min="60" max="95" step="1" value="80"><output id="thresholdOut">80</output></div>
+      </div>
+      <button id="runBtn">Run the gate <kbd>Ctrl ⏎</kbd></button>
+      <div class="stepbar" id="stepBar"><span id="stepMsg"></span><button id="stepBtn">Continue</button></div>
+    </div>
+  </section>
+
+  <!-- ======================= RIGHT: the verdict ======================= -->
+  <section>
+    <div class="card">
+      <div class="stepper" id="stepper">
+        <div class="step" data-step="precheck"><div class="bub">1</div><div class="cap">Pre-check</div><div class="sub">SERV Reasoning</div></div>
+        <div class="step" data-step="evaluate"><div class="bub">2</div><div class="cap">Evaluation</div><div class="sub">Reppo panel</div></div>
+        <div class="step" data-step="rewrite"><div class="bub">3</div><div class="cap">Rewrite</div><div class="sub">SERV Reasoning</div></div>
+        <div class="step" data-step="verdict"><div class="bub">4</div><div class="cap">Verdict</div><div class="sub">ship or block</div></div>
+      </div>
+
+      <div class="scorezone">
+        <div class="bigscore"><span id="bigScore" style="color:var(--faint)">0</span><small>/100</small></div>
+        <div>
+          <div class="verdict-line" id="verdictLine"><span class="pill review">waiting to run</span></div>
+          <div class="score-note" id="scoreNote">Pick a case on the left and run the gate. The score journey appears here, round by round — click any point or round tab to inspect it.</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><svg id="chart" viewBox="0 0 640 118" preserveAspectRatio="none" role="img" aria-label="Score by round"></svg></div>
+
+      <div class="roundtabs" id="roundTabs"></div>
+      <div class="inspector" id="inspector">
+        <p class="empty-note" style="margin:4px 0">No rounds yet. When the gate runs, each round's verdict, rubric, flagged claims and the rewrite diff land here for inspection.</p>
+      </div>
+    </div>
+
+    <div id="final" class="card" style="overflow:hidden"></div>
+
+    <div class="card card-pad audit-card" id="auditCard">
+      <div class="sec-label">Audit trail</div>
+      <ul id="audit"><li><time>--:--:--</time><span>Gate idle. Every check, verdict and rewrite is recorded here, in order.</span></li></ul>
+    </div>
+  </section>
+</main>
+
+<footer id="how">
+  <div class="cols">
+    <div><h5>How it works</h5><p>SERV Reasoning (OpenServ) extracts a draft's checkable claims and judges them against the brief, then rewrites failing drafts from the evaluator's critique. Reppo's Evaluation API supplies the independent verdict: score, decision, confidence and a ship / review / block route.</p></div>
+    <div><h5>Why a gate</h5><p>A human review pass costs time on every document an agent writes. Greenlight costs cents per evaluation, keeps the audit trail as the compliance record, and stops the one invented promise that turns into a refund fight.</p></div>
+    <div><h5>Demo mode</h5><p>With no API keys configured, the seeded cases run on clearly labelled simulated verdicts so the loop can be explored end to end. Add <span style="font-family:var(--mono);font-size:12px">SERV_API_KEY</span> and <span style="font-family:var(--mono);font-size:12px">REPPO_API_KEY</span> on the server and every verdict on this page is real. Built for the SERV Hackathon Edition 02, Reppo track.</p></div>
+  </div>
+</footer>
+
+<script>
+const EMBEDDED_CASES = [{"id":"support-refund","title":"Support reply — the refund that does not exist","kind":"Customer support reply","brief":"Northwind Outfitters support policy: returns are accepted within 14 days of delivery, for unopened items only, and are paid as store credit. There are no cash refunds. Exchanges for a different size are free. Support hours are Monday to Friday, 9:00 to 17:00 WAT.\n\nThe case: order #4821, hiking boots delivered 6 days ago in the wrong size. The box is unopened. The customer asks what can be done.","draft":"Hi Adaeze, great news! I have approved a full cash refund of the purchase price back to your card, which will land within 3 business days. I have also shipped a replacement pair in the correct size today by express courier at no cost, and because you are a valued customer I have extended your return window to 30 days on all future orders. Our support team is available 24/7 if you need anything else at all.","rounds":[{"score":38,"decision":"reject","confidence":"high","route":"block","reason":"The reply promises a full cash refund, which the policy explicitly rules out (store credit only), invents a 3-day refund timeline, an express replacement shipment and a personal 30-day return extension, and claims 24/7 support against stated hours of Mon-Fri 9-17. Four separate promises the company cannot keep.","rubric":{"accuracy":22,"policy_fit":18,"completeness":55,"tone":78},"rewrite":"Hi Adaeze, I am sorry the boots arrived in the wrong size. Because your order is unopened and within the 14-day return window, I can arrange a free size exchange for the correct pair. If you would rather return them, the amount is paid as store credit, as we do not offer cash refunds. Our support team is here Monday to Friday, 9:00 to 17:00 WAT if you need anything else."},{"score":71,"decision":"reject","confidence":"high","route":"review","reason":"The cash refund, 24/7 claim and invented extension are gone, and the store-credit rule is now stated correctly. Two gaps remain: it does not tell the customer the concrete next step for starting the exchange, and it does not name the order it is answering, which makes the reply feel generic and leaves the case unactionable.","rubric":{"accuracy":88,"policy_fit":92,"completeness":48,"tone":80},"rewrite":"Hi Adaeze, I am sorry the boots from order #4821 arrived in the wrong size. Your order is unopened and 6 days into the 14-day return window, so here is exactly what happens next: reply to this message with the size you need, and I will book the free size exchange and email you the return label for the pair you have. If you would rather return them instead, the amount is paid as store credit, as we do not offer cash refunds. Our support team is here Monday to Friday, 9:00 to 17:00 WAT if anything is unclear."},{"score":92,"decision":"accept","confidence":"high","route":"ship","reason":"Every statement is supported by the brief: correct order, correct window, free size exchange, store credit stated plainly, real support hours, and one clear next step for the customer. Nothing is promised that the policy cannot deliver.","rubric":{"accuracy":96,"policy_fit":97,"completeness":90,"tone":88},"rewrite":null}]},{"id":"listing-earbuds","title":"Product listing — specs from thin air","kind":"Marketplace product listing","brief":"TrailPods earbuds, verified spec sheet: battery 6 hours on the buds, 24 hours total with the charging case. Water resistance IPX5 (splash-proof, not for swimming). Bluetooth 5.3. No active noise cancellation; passive isolation only. Price $79. Colours: black and white.","draft":"TrailPods — 48 HOURS of non-stop playtime and studio-grade active noise cancellation that silences the world. Fully waterproof IP68: swim, shower and dive with your music. Feather-light titanium build, now at a launch-only $59 (was $99) in black, white and limited-edition red. The last earbuds you will ever buy.","rounds":[{"score":34,"decision":"reject","confidence":"high","route":"block","reason":"Nearly every selling point is invented: 48-hour battery (real figure is 6h buds / 24h with case), active noise cancellation (the product has none), IP68 swim-proofing (real rating IPX5 splash-proof), a titanium build, a $59 launch price against the $79 list price, and a red colourway that does not exist. Publishing this listing would mislead buyers on specs, price and colours at once.","rubric":{"accuracy":15,"policy_fit":30,"completeness":60,"tone":64},"rewrite":"TrailPods — 24 hours of total playtime with the charging case and passive noise isolation that keeps your focus. Splash-proof IPX5 for runs and workouts in any weather, with fast, stable Bluetooth 5.3 pairing. Yours for $79 in black or white."},{"score":73,"decision":"reject","confidence":"medium","route":"review","reason":"The invented ANC, waterproofing, price and colour claims are gone. One accuracy problem remains: '24 hours of total playtime' is stated without the 6-hour per-charge figure buyers actually plan around, and the listing never says the 24 hours includes the case, so the headline number still overpromises.","rubric":{"accuracy":70,"policy_fit":85,"completeness":58,"tone":82},"rewrite":"TrailPods — 6 hours of playtime per charge, 24 hours total with the charging case. Passive noise isolation, splash-proof IPX5 for runs and workouts in any weather, and stable Bluetooth 5.3 pairing. Yours for $79 in black or white."},{"score":94,"decision":"accept","confidence":"high","route":"ship","reason":"Every figure now matches the spec sheet exactly: 6h buds, 24h with case, IPX5 described as splash-proof, passive isolation named honestly, Bluetooth 5.3, $79, black and white only. Nothing invented, nothing material omitted.","rubric":{"accuracy":97,"policy_fit":95,"completeness":92,"tone":90},"rewrite":null}]},{"id":"outreach-bookkeeping","title":"Outreach email — the 312% ROI","kind":"Cold outreach email","brief":"Ledgerline is bookkeeping software for small shops. Facts that may be used: it speeds up invoicing and expense tracking (no percentage or time-saved figures exist). It is used by small shops in Lagos and Abuja. There is a free 14-day trial. No customer may be named or quoted. No ROI, revenue or tax-saving figures exist and none may be claimed.","draft":"Subject: How one Lagos bakery grew revenue 312% with Ledgerline\n\nHi, I saw your shop and had to reach out. Businesses like yours see an average 312% ROI in the first quarter with Ledgerline — just ask Funmi's Bakery, who told us 'Ledgerline paid for itself in a week and cut our taxes by 40%.' Join 10,000+ businesses already saving an average of 11 hours a week. Start today and watch the savings roll in.","rounds":[{"score":31,"decision":"reject","confidence":"high","route":"block","reason":"The email is built on fabrications the brief explicitly forbids: a 312% ROI figure, a named customer with an invented quote, a 40% tax-saving claim, a 10,000-business user count and an 11-hours-a-week saving, none of which exist. Sending this would expose the sender to false-advertising complaints.","rubric":{"accuracy":10,"policy_fit":22,"completeness":52,"tone":58},"rewrite":"Subject: Bookkeeping that keeps up with your shop\n\nHi, I work with Ledgerline, the bookkeeping tool small shops in Lagos and Abuja use to invoice faster and keep expenses in one place. There is a free 14-day trial, so you can run it against a normal week in your shop and judge it on your own numbers. Worth a look?"},{"score":76,"decision":"reject","confidence":"medium","route":"review","reason":"All invented figures, the fake quote and the user count are gone, and every remaining claim is supported. It is held at review only because the call to action is soft: it never tells the reader what starting the trial actually involves or that no card is mentioned in the brief, so it should not promise one either way; one concrete, brief-supported next step would finish it.","rubric":{"accuracy":94,"policy_fit":90,"completeness":62,"tone":84},"rewrite":"Subject: Bookkeeping that keeps up with your shop\n\nHi, I work with Ledgerline, the bookkeeping tool small shops in Lagos and Abuja use to invoice faster and keep expenses in one place. There is a free 14-day trial: sign up on the Ledgerline site, add your shop, and run your invoicing through it for two weeks against a normal trading week, then judge it on your own numbers. Worth a look?"},{"score":91,"decision":"accept","confidence":"high","route":"ship","reason":"Every claim traces to the brief: invoicing speed and expense tracking with no invented figures, Lagos and Abuja usage, the free 14-day trial, and a concrete sign-up step. No named customers, no ROI, no savings promises.","rubric":{"accuracy":95,"policy_fit":94,"completeness":90,"tone":87},"rewrite":null}]}];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const state = { cases: [], server: false, live: false, running: false, history: [], caseId: null, inspect: 0 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function now() { return new Date().toLocaleTimeString("en-GB"); }
+function audit(html) {
+  const list = $("audit");
+  if (list.dataset.fresh !== "1") { list.innerHTML = ""; list.dataset.fresh = "1"; }
+  const li = document.createElement("li");
+  li.innerHTML = `<time>${now()}</time><span>${html}</span>`;
+  list.appendChild(li); list.scrollTop = list.scrollHeight;
+}
+async function api(path, body) {
+  const res = await fetch(path, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+  return data;
+}
+
+/* ---------- claim tracing (shared heuristic, instant + demo) ---------- */
+function traceClaims(brief, draft) {
+  const sentences = String(draft || "").split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  const risky = /(\d|guarantee|refund|free|24\/7|always|never|%|\$)/i;
+  const briefLow = String(brief || "").toLowerCase();
+  const stem = (w) => w.replace(/(s|es)$/, "");
+  const briefWords = new Set((briefLow.match(/[a-z]{4,}/g) || []).map(stem));
+  return sentences.map((text) => {
+    if (!risky.test(text)) return { text, risky: false, supported: true };
+    const nums = text.match(/\d[\d,.]*/g) || [];
+    const numbersOk = nums.every((n) => briefLow.includes(n));
+    const words = (text.toLowerCase().match(/[a-z]{4,}/g) || []).map(stem);
+    const hits = words.filter((w) => briefWords.has(w)).length;
+    const ratio = words.length ? hits / words.length : 0;
+    const supported = nums.length ? numbersOk && ratio >= 0.3 : ratio >= 0.45;
+    return { text, risky: true, supported, evidence: supported ? "figures and wording trace back to the brief" : "does not trace back to the brief" };
+  });
+}
+function clientPrecheck(brief, draft) {
+  const claims = traceClaims(brief, draft).filter((c) => c.risky).map(({ text, supported, evidence }) => ({ text, supported, evidence }));
+  return { claims, criteria: [], risks: [], source: "heuristic" };
+}
+function clientVerdict(caseId, round) {
+  const c = state.cases.find((x) => x.id === caseId);
+  if (c && c.rounds[round - 1]) return { ...c.rounds[round - 1], rewrite: undefined, source: "simulated" };
+  return { score: 50, decision: "reject", confidence: "low", route: "review", reason: "Standalone preview: run the server with a Reppo key connected for a real verdict on custom text.", rubric: { accuracy: 50, completeness: 50, tone: 50 }, source: "simulated" };
+}
+function clientRewrite(caseId, round) {
+  const c = state.cases.find((x) => x.id === caseId);
+  if (c && c.rounds[round - 1] && c.rounds[round - 1].rewrite) return { draft: c.rounds[round - 1].rewrite, source: "simulated" };
+  return { draft: $("draft").value, source: "simulated" };
+}
+async function call(kind, payload) {
+  if (state.server) return api(`/api/${kind}`, payload);
+  await sleep(600);
+  if (kind === "precheck") return clientPrecheck(payload.brief, payload.draft);
+  if (kind === "evaluate") return clientVerdict(payload.caseId, payload.round);
+  if (kind === "rewrite") return clientRewrite(payload.caseId, payload.round);
+  throw new Error("unknown call " + kind);
+}
+
+/* ---------- word diff ---------- */
+function diffWords(a, b) {
+  const A = String(a).split(/\s+/).filter(Boolean), B = String(b).split(/\s+/).filter(Boolean);
+  const m = A.length, n = B.length;
+  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+  for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  const push = (type, w) => { const last = out[out.length - 1]; if (last && last.type === type) last.words.push(w); else out.push({ type, words: [w] }); };
+  while (i < m && j < n) { if (A[i] === B[j]) { push("eq", A[i]); i++; j++; } else if (dp[i + 1][j] >= dp[i][j + 1]) { push("del", A[i]); i++; } else { push("ins", B[j]); j++; } }
+  while (i < m) push("del", A[i++]); while (j < n) push("ins", B[j++]);
+  return out.map((seg) => {
+    const t = esc(seg.words.join(" "));
+    return seg.type === "eq" ? t : seg.type === "del" ? `<del>${t}</del>` : `<ins>${t}</ins>`;
+  }).join(" ");
+}
+
+/* ---------- instant check ---------- */
+let instantTimer = null;
+function renderInstant() {
+  const traced = traceClaims($("brief").value, $("draft").value);
+  const risky = traced.filter((c) => c.risky);
+  const bad = risky.filter((c) => !c.supported);
+  const count = $("instantCount");
+  if (!risky.length) { count.textContent = "no checkable claims"; count.className = "count"; }
+  else { count.textContent = bad.length ? `${bad.length} unsupported` : "all traced"; count.className = "count" + (bad.length ? " bad" : ""); }
+  if (!traced.length) { $("instantBody").innerHTML = `<div class="none">Write or paste a draft and its checkable sentences appear here, traced live.</div>`; return; }
+  const html = traced.map((c) => {
+    if (!c.risky) return esc(c.text);
+    return `<mark class="${c.supported ? "okm" : ""}" title="${c.supported ? "traced to the brief" : "unsupported — not in the brief"}">${esc(c.text)}</mark>`;
+  }).join(" ");
+  $("instantBody").innerHTML = `<p>${html}</p>` + (bad.length ? `<div class="none" style="color:var(--red)">Red highlights are claims the brief does not support. The full gate sends these to the evaluator panel.</div>` : "");
+}
+function scheduleInstant() { clearTimeout(instantTimer); instantTimer = setTimeout(renderInstant, 250); }
+
+/* ---------- case tabs ---------- */
+function renderTabs() {
+  const wrap = $("caseTabs");
+  wrap.innerHTML = "";
+  state.cases.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "tab" + (state.caseId === c.id ? " on" : "");
+    b.innerHTML = `<span class="n">0${i + 1}</span>${esc(c.title.split(" — ")[0])}`;
+    b.title = c.title;
+    b.onclick = () => selectCase(c.id);
+    wrap.appendChild(b);
+  });
+  const custom = document.createElement("button");
+  custom.className = "tab" + (state.caseId === null ? " on" : "");
+  custom.textContent = "Custom";
+  custom.onclick = () => { state.caseId = null; renderTabs(); $("brief").focus(); };
+  wrap.appendChild(custom);
+}
+function selectCase(id) {
+  state.caseId = id;
+  const c = state.cases.find((x) => x.id === id);
+  if (c) { $("brief").value = c.brief; $("draft").value = c.draft; }
+  renderTabs(); renderInstant();
+}
+
+/* ---------- stepper + step-through gate ---------- */
+const STEP_ORDER = ["precheck", "evaluate", "rewrite", "verdict"];
+function setStep(name, phase) {
+  document.querySelectorAll(".step").forEach((el) => {
+    const idx = STEP_ORDER.indexOf(el.dataset.step), cur = STEP_ORDER.indexOf(name);
+    el.classList.toggle("active", phase === "active" && el.dataset.step === name);
+    el.classList.toggle("done", phase === "done" || idx < cur || (phase === "active" && idx < cur));
+    if (el.dataset.step === name && phase === "done") el.querySelector(".bub").innerHTML = "✓";
+  });
+}
+function resetStepper() {
+  document.querySelectorAll(".step").forEach((el, i) => {
+    el.classList.remove("active", "done");
+    el.querySelector(".bub").textContent = String(i + 1);
+  });
+}
+let stepResolve = null;
+function waitStep(msg) {
+  if (!$("stepMode").checked) return Promise.resolve();
+  $("stepMsg").textContent = msg;
+  $("stepBar").classList.add("show");
+  return new Promise((res) => { stepResolve = res; });
+}
+$("stepBtn").onclick = () => { $("stepBar").classList.remove("show"); if (stepResolve) { stepResolve(); stepResolve = null; } };
+
+/* ---------- score + chart ---------- */
+function countUp(el, to) {
+  const from = parseInt(el.textContent, 10) || 0, t0 = performance.now(), dur = 650;
+  (function tick(t) {
+    const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = String(Math.round(from + (to - from) * e));
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+function drawChart() {
+  const svg = $("chart"), W = 640, H = 118, padL = 34, padR = 16, padT = 24, padB = 22;
+  const th = Number($("threshold").value);
+  const y = (v) => padT + (1 - v / 100) * (H - padT - padB);
+  const scores = state.history.map((h) => h.verdict.score);
+  let s = `<line x1="${padL}" y1="${y(0)}" x2="${W - padR}" y2="${y(0)}" stroke="#e4e1d8"/>`;
+  s += `<line x1="${padL}" y1="${y(th)}" x2="${W - padR}" y2="${y(th)}" stroke="#0b7a43" stroke-dasharray="5 5" opacity=".55"/>`;
+  s += `<text x="${padL + 4}" y="${y(th) - 6}" fill="#0b7a43" font-size="11" font-family="IBM Plex Mono">ship threshold ${th}</text>`;
+  if (scores.length) {
+    const stepX = scores.length > 1 ? (W - padL - padR - 30) / 2 : 0;
+    const pts = scores.map((v, i) => [padL + 18 + i * stepX, y(v)]);
+    if (pts.length > 1) s += `<polyline fill="none" stroke="#191b1e" stroke-width="2.5" stroke-linejoin="round" points="${pts.map((p) => p.join(",")).join(" ")}"/>`;
+    pts.forEach(([x, yy], i) => {
+      const route = state.history[i].verdict.route;
+      const col = route === "ship" ? "#0b7a43" : route === "review" ? "#d99a16" : "#bc3226";
+      s += `<circle class="pt" data-i="${i}" cx="${x}" cy="${yy}" r="7" fill="#fff" stroke="${col}" stroke-width="3"/>`;
+      s += `<text x="${x}" y="${yy - 14}" fill="#191b1e" font-size="14" font-weight="600" text-anchor="middle" font-family="Fraunces">${scores[i]}</text>`;
+      s += `<text x="${x}" y="${H - 5}" fill="#71757c" font-size="11" text-anchor="middle">round ${i + 1}</text>`;
+    });
+  } else {
+    s += `<text x="${padL + 4}" y="${y(50)}" fill="#a3a6ab" font-size="12.5">the score journey draws itself here as rounds complete</text>`;
+  }
+  svg.innerHTML = s;
+  svg.querySelectorAll("circle.pt").forEach((c) => c.addEventListener("click", () => showRound(Number(c.dataset.i))));
+}
+
+/* ---------- round inspector ---------- */
+function renderRoundTabs() {
+  const wrap = $("roundTabs"); wrap.innerHTML = "";
+  state.history.forEach((h, i) => {
+    const b = document.createElement("button");
+    b.className = "rtab" + (state.inspect === i ? " on" : "");
+    b.innerHTML = `Round ${i + 1}<span class="s">${h.verdict.score}</span>`;
+    b.onclick = () => showRound(i);
+    wrap.appendChild(b);
+  });
+}
+function showRound(i) {
+  state.inspect = i; renderRoundTabs();
+  const h = state.history[i]; if (!h) return;
+  const v = h.verdict;
+  const rubric = Object.entries(v.rubric || {}).map(([k, val]) => {
+    const cls = val < 45 ? "low" : val < 75 ? "mid" : "";
+    return `<div class="row"><span>${esc(k.replace(/_/g, " "))}</span><div class="bar"><i class="${cls}" data-w="${val}"></i></div><span class="v">${val}</span></div>`;
+  }).join("");
+  const claims = (h.pre && h.pre.claims || []).map((c) =>
+    `<li class="${c.supported ? "ok" : "bad"}"><span class="st">${c.supported ? "TRACED" : "UNSUPPORTED"}</span>${esc(c.text)}<small>${esc(c.evidence || "")} · pre-check via ${esc(h.pre.source || "")}</small></li>`).join("");
+  const diff = h.rewrite ? `<div class="subhead">What the rewrite changed</div><div class="diffbox">${diffWords(h.draftIn, h.rewrite)}</div>` : "";
+  $("inspector").innerHTML = `
+    <div class="fadein">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <span class="pill ${v.route}">${esc(v.route)}</span>
+        <span class="pill src">${v.source === "reppo" ? "reppo verdict" : "simulated verdict"}</span>
+        <span style="color:var(--muted);font-size:13px">decision ${esc(v.decision || "—")} · confidence ${esc(v.confidence || "—")}${v.evalId ? ` · eval ${esc(v.evalId)}` : ""}</span>
+      </div>
+      <div class="reason">${esc(v.reason || "")}</div>
+      ${rubric ? `<div class="rubric">${rubric}</div>` : ""}
+      ${claims ? `<div class="subhead">Claims traced in this round's draft</div><ul class="claims">${claims}</ul>` : ""}
+      <details class="more"><summary>Read this round's draft</summary><div class="draftbox" style="margin-top:8px">${esc(h.draftIn)}</div></details>
+      ${diff}
+    </div>`;
+  requestAnimationFrame(() => document.querySelectorAll(".rubric .bar i").forEach((b) => { b.style.width = b.dataset.w + "%"; }));
+}
+function setVerdictUI(v) {
+  countUp($("bigScore"), v.score);
+  $("bigScore").style.color = v.route === "ship" ? "var(--green)" : v.route === "review" ? "#b57e10" : "var(--red)";
+  $("verdictLine").innerHTML = `<span class="pill ${v.route}">${esc(v.route)}</span><span class="pill src">${v.source === "reppo" ? "real verdict · reppo panel" : "simulated verdict · demo mode"}</span>`;
+  $("scoreNote").textContent = v.source === "reppo" ? "Scored by Reppo's independent evaluator panel. SERV Reasoning did the pre-check and the rewrites." : "Demo mode: this verdict is simulated from the seeded case data. Connect the SERV and Reppo keys and every number here is real.";
+  $("topDot").className = "dot " + v.route;
+}
+
+/* ---------- the gate loop ---------- */
+async function runGate() {
+  if (state.running) return;
+  const brief = $("brief").value.trim();
+  let draft = $("draft").value.trim();
+  if (!brief || !draft) { audit("<b>Stopped.</b> A brief and a draft are both required."); return; }
+  state.running = true;
+  const btn = $("runBtn"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span>Gate running`;
+  state.history = []; state.original = draft; renderRoundTabs(); drawChart();
+  $("inspector").innerHTML = `<p class="empty-note" style="margin:4px 0">Running…</p>`;
+  $("final").className = ""; $("final").style.display = "none";
+  $("audit").dataset.fresh = ""; resetStepper();
+  $("bigScore").textContent = "0"; $("bigScore").style.color = "var(--ink)"; $("topDot").className = "dot";
+  audit(`<b>Gate opened</b> — ${state.caseId ? "seeded case" : "custom text"} · ${state.live ? "live mode" : "demo mode"} · ship threshold ${$("threshold").value}.`);
+  const MAX = 3; let passed = false, last = null;
+
+  for (let round = 1; round <= MAX; round++) {
+    setStep("precheck", "active");
+    audit(`<b>Round ${round} · pre-check.</b> SERV Reasoning is extracting the checkable claims.`);
+    let pre = null;
+    try { pre = await call("precheck", { brief, draft }); } catch (e) { audit(`Pre-check failed (${esc(e.message)}). Continuing to evaluation.`); }
+    if (pre) {
+      const bad = (pre.claims || []).filter((c) => !c.supported).length;
+      audit(`Pre-check done via ${esc(pre.source)} — ${(pre.claims || []).length} checkable claims, <b>${bad} unsupported</b>.`);
+    }
+    setStep("precheck", "done");
+    await waitStep(`Round ${round}: pre-check complete. Continue to send the draft to Reppo's evaluator panel.`);
+
+    setStep("evaluate", "active");
+    audit(`<b>Round ${round} · evaluation.</b> Draft sent to Reppo's evaluator panel.`);
+    let verdict;
+    try { verdict = await call("evaluate", { brief, draft, caseId: state.caseId, round }); }
+    catch (e) { audit(`<b>Evaluation failed:</b> ${esc(e.message)}`); break; }
+    last = verdict;
+    const entry = { round, draftIn: draft, pre, verdict, rewrite: null };
+    state.history.push(entry);
+    setStep("evaluate", "done");
+    drawChart(); setVerdictUI(verdict); showRound(state.history.length - 1);
+    audit(`Round ${round} verdict — <b>${verdict.score}/100, ${esc(verdict.route)}</b>${verdict.evalId ? ` · eval ${esc(verdict.evalId)}` : ""} (${esc(verdict.source)}).`);
+
+    const th = Number($("threshold").value);
+    if (verdict.route === "ship" || (verdict.decision === "accept" && verdict.score >= th)) { passed = true; break; }
+    if (round === MAX) break;
+    await waitStep(`Round ${round} did not pass (${verdict.score}/100). Continue to let SERV rewrite it from the critique.`);
+
+    setStep("rewrite", "active");
+    audit(`<b>Round ${round} · rewrite.</b> SERV Reasoning is rewriting from the panel's critique.`);
+    try {
+      const rw = await call("rewrite", { brief, draft, caseId: state.caseId, round, critique: verdict, flaggedClaims: (pre && pre.claims || []).filter((c) => !c.supported) });
+      entry.rewrite = rw.draft; draft = rw.draft;
+      showRound(state.history.length - 1);
+      audit(`Rewrite done via ${esc(rw.source)} — the new draft enters round ${round + 1}.`);
+    } catch (e) { audit(`<b>Rewrite failed:</b> ${esc(e.message)}`); break; }
+    setStep("rewrite", "done");
+  }
+
+  setStep("verdict", "done");
+  renderFinal(passed, draft, last);
+  state.running = false; btn.disabled = false; btn.innerHTML = `Run the gate <kbd>Ctrl ⏎</kbd>`;
+}
+function renderFinal(passed, draft, verdict) {
+  const fin = $("final");
+  fin.style.display = "block"; fin.className = "card show " + (passed ? "ok" : "no");
+  const journey = state.history.map((h) => h.verdict.score).join(" → ");
+  fin.innerHTML = `
+    <div class="banner"><div class="sig">${passed ? "✓" : "!"}</div>
+      <div><h2>${passed ? "Greenlit — safe to ship" : "Blocked — not shipping"}</h2>
+      <p>score journey ${journey} · ${state.history.length} round(s) · final score ${verdict ? verdict.score : "—"}/100</p></div>
+    </div>
+    <div class="body">
+      <div class="compare">
+        <div><h4>As the agent wrote it</h4><div class="draftbox">${esc(state.original)}</div></div>
+        <div><h4>${passed ? "As it ships" : "Where it stopped"}</h4><div class="draftbox">${esc(draft)}</div></div>
+      </div>
+      <details class="more"><summary>See every change, word by word</summary><div class="diffbox" style="margin-top:8px">${diffWords(state.original, draft)}</div></details>
+      <div class="actions">
+        ${passed ? `<button class="btn primary" id="copyBtn">Copy the greenlit text</button>` : ""}
+        <button class="btn" id="reportBtn">Download audit report</button>
+      </div>
+    </div>`;
+  fin.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const copyBtn = $("copyBtn");
+  if (copyBtn) copyBtn.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(draft); copyBtn.textContent = "Copied"; setTimeout(() => copyBtn.textContent = "Copy the greenlit text", 1600); };
+  $("reportBtn").onclick = () => downloadReport(passed, draft, journey);
+  audit(passed ? `<b>Greenlit.</b> Score journey ${journey}. The passing text is ready to copy.` : `<b>Blocked.</b> Score journey ${journey}. The draft stays here with its reasons attached; a human takes it from here.`);
+}
+function downloadReport(passed, draft, journey) {
+  const lines = [
+    `# Greenlight audit report`, ``,
+    `Result: ${passed ? "GREENLIT" : "BLOCKED"} · score journey ${journey} · mode ${state.live ? "live" : "demo (simulated verdicts)"}`,
+    ``, `## Brief`, $("brief").value.trim(), ``, `## Original draft`, state.original, ``, `## Final draft`, draft, ``, `## Rounds`,
+    ...state.history.map((h) => `- Round ${h.round}: ${h.verdict.score}/100 · ${h.verdict.route} · ${h.verdict.source} — ${h.verdict.reason}`),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "greenlight-audit-report.md"; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------- init ---------- */
+$("threshold").addEventListener("input", () => { $("thresholdOut").textContent = $("threshold").value; drawChart(); });
+$("brief").addEventListener("input", scheduleInstant);
+$("draft").addEventListener("input", scheduleInstant);
+$("runBtn").onclick = runGate;
+document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runGate(); } });
+(async function init() {
+  try {
+    const status = await api("/api/status");
+    state.server = true; state.live = Boolean(status.live); state.status = status;
+    state.cases = (await api("/api/cases")).cases;
+  } catch { state.server = false; state.cases = EMBEDDED_CASES || []; }
+  const badge = $("modeBadge");
+  badge.className = "mode" + (state.live ? " live" : "");
+  badge.querySelector("span").textContent = state.live
+    ? "live · serv + reppo"
+    : state.status && state.status.serv
+      ? "serv live · reppo demo"
+      : state.status && state.status.reppo
+        ? "reppo live · serv demo"
+        : "demo mode · simulated verdicts";
+  if (state.cases.length) selectCase(state.cases[0].id); else { state.caseId = null; renderTabs(); }
+  drawChart(); renderInstant();
+})();
+</script>
+</body>
+</html>

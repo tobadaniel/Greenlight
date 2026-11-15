@@ -1,0 +1,9 @@
+built greenlight for the @openservai serv hackathon, reppo track
+
+it is a quality gate for ai agent output. nothing ships until it passes
+
+serv reasoning pulls every checkable claim out of a draft and checks it against the brief. reppo's evaluator panel scores it. if it fails, serv rewrites it from the critique and the loop runs again
+
+in the live demo a support reply that invented a cash refund policy scored 27 and got blocked, then serv rewrote it and the panel scored the rewrite 100 and shipped it
+
+repo and demo below

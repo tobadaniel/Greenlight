@@ -1,0 +1,13 @@
+This support reply was written by an AI agent. It promises a full cash refund, a replacement shipped today, and round-the-clock support. The company's policy offers none of that. Greenlight exists to catch this before a customer ever sees it.
+===
+Greenlight is a quality gate for agent output. SERV Reasoning reads the draft against the brief and pulls out every checkable claim. Then Reppo's evaluator panel scores it: a number, a decision, and a route.
+===
+Round one: blocked. Score twenty-seven. The panel gave the draft zero for factual accuracy. It found the invented cash refund, the three-day payout that does not exist, the personal thirty-day extension, and the 24/7 support claim. Four promises the company cannot keep.
+===
+So SERV rewrites the draft, working from the panel's own critique and the flagged claims. The cash refund is gone. Store credit is stated correctly. The free size exchange stays, because the brief allows it.
+===
+Round two: one hundred. Every claim in the rewrite traces back to the brief, so the panel ships it. That is the whole point of the loop: real-time feedback turned into a measurable improvement, twenty-seven to one hundred.
+===
+It works on anything an agent writes. Product listings that invent battery life and waterproofing. Outreach emails built on ROI figures nobody measured. Blocked, rewritten, and only shipped when they pass.
+===
+And every step stays on the record: what was checked, what the verdict was, and what changed. Greenlight. Nothing ships until it passes.
